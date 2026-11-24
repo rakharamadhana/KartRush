@@ -82,6 +82,20 @@ namespace KartRush.EditorTools
                 race.checkpoints.Add(cp);
             }
 
+            // Items
+            var boxOuter = GetMat("ItemBoxOuter", new Color(0.2f, 0.75f, 1f), 0.8f);
+            boxOuter.EnableKeyword("_EMISSION");
+            boxOuter.SetColor("_EmissionColor", new Color(0.1f, 0.5f, 0.9f) * 1.5f);
+            var boxInner = GetMat("ItemBoxCore", new Color(1f, 0.85f, 0.2f), 0.8f);
+            boxInner.EnableKeyword("_EMISSION");
+            boxInner.SetColor("_EmissionColor", new Color(1f, 0.7f, 0.1f) * 2f);
+            var itemAssets = raceGo.AddComponent<ItemAssets>();
+            itemAssets.bananaMat = GetMat("Banana", new Color(1f, 0.88f, 0.15f), 0.5f);
+            itemAssets.bananaDarkMat = GetMat("BananaTip", new Color(0.25f, 0.15f, 0.05f), 0.3f);
+            itemAssets.shellMat = GetMat("Shell", new Color(0.1f, 0.75f, 0.25f), 0.7f);
+            itemAssets.shellRingMat = GetMat("ShellRing", new Color(0.97f, 0.97f, 0.9f), 0.4f);
+            BuildItemBoxes(track.transform, boxOuter, boxInner);
+
             // Kart
             // Start grid: 2 karts per row, rows 8 m apart; the player starts in the third row.
             const int playerSlot = 4;
@@ -334,6 +348,33 @@ namespace KartRush.EditorTools
             r.startPosition = pos;
             r.startYaw = yaw;
             race.racers.Add(r);
+            kart.gameObject.AddComponent<KartItems>();
+        }
+
+        // Rows of item boxes across the road at a few points around the lap.
+        static void BuildItemBoxes(Transform parent, Material outer, Material inner)
+        {
+            int[] rows = { 28, 88, 148, 208 };
+            float[] lanes = { -5.2f, -1.75f, 1.75f, 5.2f };
+            foreach (int idx in rows)
+                foreach (float lane in lanes)
+                {
+                    var go = new GameObject("ItemBox");
+                    go.transform.SetParent(parent);
+                    go.transform.position = center[idx] + right[idx] * lane + Vector3.up * 1.3f;
+                    var col = go.AddComponent<BoxCollider>();
+                    col.isTrigger = true;
+                    col.size = Vector3.one * 2.2f;
+
+                    var vis = new GameObject("Visual").transform;
+                    vis.SetParent(go.transform, false);
+                    Prim(vis, "Outer", PrimitiveType.Cube, Vector3.zero, Vector3.one * 1.3f, outer);
+                    var core = Prim(vis, "Core", PrimitiveType.Cube, Vector3.zero, Vector3.one * 0.7f, inner);
+                    core.transform.localRotation = Quaternion.Euler(45f, 45f, 0f);
+
+                    var box = go.AddComponent<ItemBox>();
+                    box.visual = vis;
+                }
         }
 
         static PhysicsMaterial GetSpherePhysicsMaterial()
@@ -505,7 +546,9 @@ namespace KartRush.EditorTools
             hud.bestText = MakeText(t, "Best", new Vector2(0f, 1f), new Vector2(40f, -170f), 36, TextAnchor.UpperLeft, 600f);
             hud.speedText = MakeText(t, "Speed", new Vector2(1f, 0f), new Vector2(-40f, 40f), 80, TextAnchor.LowerRight, 600f);
             hud.helpText = MakeText(t, "Help", new Vector2(0f, 0f), new Vector2(40f, 30f), 26, TextAnchor.LowerLeft, 1100f);
-            hud.helpText.text = "W/S gas / brake    A/D steer    SPACE drift (release for mini-turbo)    R respawn";
+            hud.helpText.text = "W/S gas / brake    A/D steer    SPACE drift (release for mini-turbo)    E use item    R respawn";
+            hud.itemText = MakeText(t, "Item", new Vector2(0.5f, 1f), new Vector2(0f, -30f), 56, TextAnchor.UpperCenter, 700f);
+            hud.itemText.supportRichText = true;
             hud.helpText.color = new Color(1f, 1f, 1f, 0.8f);
 
             hud.positionText = MakeText(t, "Position", new Vector2(1f, 1f), new Vector2(-40f, -20f), 120, TextAnchor.UpperRight, 500f);

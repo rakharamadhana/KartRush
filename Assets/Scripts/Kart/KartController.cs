@@ -41,6 +41,10 @@ namespace KartRush
         public float boostSpeed = 44f;
         public float boostAcceleration = 60f;
 
+        [Header("Hits")]
+        public float spinDuration = 1.3f;
+        public float hitImmunity = 1.5f;
+
         [Header("Scripted input (AI / tests)")]
         public bool useScriptedInput;
         public float scriptedThrottle, scriptedBrake, scriptedSteer;
@@ -51,6 +55,7 @@ namespace KartRush
         public bool IsGrounded { get; private set; }
         public bool IsDrifting { get; private set; }
         public bool IsBoosting => boostTimer > 0f;
+        public bool IsSpinning => spinTimer > 0f;
         public int DriftLevel { get; private set; }   // 0 = none, 1..3 = mini-turbo charge
         public float ForwardSpeed { get; private set; }
         public float SpeedKmh => Mathf.Abs(ForwardSpeed) * 3.6f;
@@ -60,6 +65,7 @@ namespace KartRush
         float steerInput, throttleInput, brakeInput;
         bool driftHeld, driftPressedThisFrame;
         float driftDir, driftTimer, boostTimer;
+        float spinTimer, spinTotal = 1f, immuneTimer;
         Vector3 groundNormal = Vector3.up;
         Vector3 smoothNormal = Vector3.up;
         Quaternion visualRoll = Quaternion.identity;
@@ -91,6 +97,7 @@ namespace KartRush
             transform.position = position - Vector3.up * sphere.GetComponent<SphereCollider>().radius;
             transform.rotation = Quaternion.Euler(0f, newYaw, 0f);
             driftTimer = 0f; IsDrifting = false; DriftLevel = 0; boostTimer = 0f;
+            spinTimer = 0f; immuneTimer = 0f;
         }
 
         public void SetCheckpointRespawn(Vector3 position, float newYaw)
@@ -103,20 +110,37 @@ namespace KartRush
 
         public void GiveBoost(float seconds) => boostTimer = Mathf.Max(boostTimer, seconds);
 
+        /// <summary>Knocked off course by a banana or shell: spin, lose speed and any boost. Returns false if immune.</summary>
+        public bool SpinOut(float seconds = -1f)
+        {
+            if (spinTimer > 0f || immuneTimer > 0f) return false;
+            spinTotal = spinTimer = seconds > 0f ? seconds : spinDuration;
+            boostTimer = 0f;
+            CancelDrift(false);
+            return true;
+        }
+
         void Update()
         {
             ReadInput();
 
             if (transform.position.y < -15f) Respawn();
 
+            if (spinTimer > 0f)
+            {
+                spinTimer -= Time.deltaTime;
+                if (spinTimer <= 0f) immuneTimer = hitImmunity;
+            }
+            else if (immuneTimer > 0f) immuneTimer -= Time.deltaTime;
+
             float speedFactor = Mathf.Clamp(ForwardSpeed / 6f, -1f, 1f);
-            if (canDrive && IsGrounded && Mathf.Abs(ForwardSpeed) > 0.5f)
+            if (canDrive && IsGrounded && spinTimer <= 0f && Mathf.Abs(ForwardSpeed) > 0.5f)
             {
                 UpdateDrift();
                 float steer = EffectiveSteer();
                 yaw += steer * turnRate * speedFactor * Time.deltaTime;
             }
-            else if (!canDrive)
+            else if (!canDrive || spinTimer > 0f)
             {
                 steerInput = throttleInput = brakeInput = 0f;
                 CancelDrift(false);
@@ -237,6 +261,7 @@ namespace KartRush
                 float target;
                 float rate;
                 if (!canDrive) { target = 0f; rate = brakeDeceleration; }
+                else if (spinTimer > 0f) { target = 0f; rate = brakeDeceleration * 0.5f; }
                 else if (IsBoosting) { target = top; rate = accel; }
                 else if (brakeInput > 0.05f && throttleInput < 0.05f)
                 {
@@ -286,8 +311,13 @@ namespace KartRush
             if (IsDrifting) { roll = -driftDir * 10f; slide = driftDir * 18f; }
             if (visual != null)
             {
-                var target = Quaternion.Euler(0f, slide, roll);
-                visual.localRotation = Quaternion.Slerp(visual.localRotation, target, 10f * Time.deltaTime);
+                if (spinTimer > 0f)
+                    visual.localRotation = Quaternion.Euler(0f, 720f * (1f - spinTimer / spinTotal), 0f);
+                else
+                {
+                    var target = Quaternion.Euler(0f, slide, roll);
+                    visual.localRotation = Quaternion.Slerp(visual.localRotation, target, 10f * Time.deltaTime);
+                }
             }
 
             float steerAngle = steerInput * 28f;

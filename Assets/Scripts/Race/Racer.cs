@@ -35,6 +35,8 @@ namespace KartRush
             Finished = false;
             FinishTime = 0f;
             kart.canDrive = false;
+            var items = GetComponent<KartItems>();
+            if (items != null) items.Clear();
             kart.PlaceAt(startPosition, startYaw);
             kart.SetCheckpointRespawn(startPosition, startYaw);
             index = ClosestIndex(startPosition);

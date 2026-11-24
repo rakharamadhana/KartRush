@@ -53,6 +53,10 @@ namespace KartRush
             crossedStartOnce = false;
             GoFlashTimer = 0f;
 
+            ItemBox.ResetAll();
+            Banana.ClearAll();
+            Shell.ClearAll();
+
             PlayerRacer = racers.FirstOrDefault(r => r.isPlayer);
             foreach (var r in racers) r.ResetRace();
             UpdateStandings();

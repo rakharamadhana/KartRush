@@ -8,8 +8,9 @@ namespace KartRush
     {
         public RaceManager race;
         public KartController kart;
-        public Text lapText, timeText, bestText, speedText, centerText, helpText, positionText, standingsText;
+        public Text lapText, timeText, bestText, speedText, centerText, helpText, positionText, standingsText, itemText;
         public Image driftBar;
+        KartItems items;
 
         static readonly Color[] DriftColors =
         {
@@ -43,6 +44,16 @@ namespace KartRush
                     sb2.Append($"{i + 1}. <color=#{hex}>{name}</color>{(r.Finished ? "  FIN" : "")}\n");
                 }
                 standingsText.text = sb2.ToString();
+            }
+
+            // Held item
+            if (itemText != null)
+            {
+                if (items == null) items = kart.GetComponent<KartItems>();
+                var held = items != null ? items.held : ItemType.None;
+                itemText.text = held == ItemType.None
+                    ? ""
+                    : $"<color=#{ColorUtility.ToHtmlStringRGB(KartItems.DisplayColor(held))}>{KartItems.DisplayName(held)}</color>  <size=28>[E]</size>";
             }
 
             // Drift charge bar
