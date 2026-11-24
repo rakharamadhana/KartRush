@@ -1,17 +1,21 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace KartRush
 {
-    /// <summary>Countdown, lap counting (ordered checkpoints), timing and finish state for the player's kart.</summary>
+    /// <summary>
+    /// Countdown, the player's lap timing (ordered checkpoints), and the whole field's standings.
+    /// </summary>
     public class RaceManager : MonoBehaviour
     {
-        public KartController kart;
+        public KartController kart;            // the player's kart
         public KartCamera cam;
         public int totalLaps = 3;
         public float countdownSeconds = 3f;
         public List<Checkpoint> checkpoints = new List<Checkpoint>();
-        public Vector3[] racingLine;   // track centerline, in driving order (AI / tests)
+        public List<Racer> racers = new List<Racer>();
+        public Vector3[] racingLine;           // track centerline, in driving order (AI / standings)
         public Vector3 startPosition;
         public float startYaw;
 
@@ -26,6 +30,11 @@ namespace KartRush
         public List<float> LapTimes { get; } = new List<float>();
         public float GoFlashTimer { get; private set; }
 
+        public List<Racer> Standings { get; } = new List<Racer>();
+        public int PlayerPosition { get; private set; } = 1;
+        public Racer PlayerRacer { get; private set; }
+
+        readonly List<Racer> finishedOrder = new List<Racer>();
         int nextCheckpoint;
         bool crossedStartOnce;
 
@@ -39,13 +48,15 @@ namespace KartRush
             RaceTime = LapTime = 0f;
             BestLap = -1f;
             LapTimes.Clear();
+            finishedOrder.Clear();
             nextCheckpoint = 0;
             crossedStartOnce = false;
             GoFlashTimer = 0f;
 
-            kart.canDrive = false;
-            kart.PlaceAt(startPosition, startYaw);
-            kart.SetCheckpointRespawn(startPosition, startYaw);
+            PlayerRacer = racers.FirstOrDefault(r => r.isPlayer);
+            foreach (var r in racers) r.ResetRace();
+            UpdateStandings();
+
             if (cam != null) cam.Snap();
         }
 
@@ -58,7 +69,7 @@ namespace KartRush
                     if (CountdownRemaining <= 0f)
                     {
                         state = State.Racing;
-                        kart.canDrive = true;
+                        foreach (var r in racers) r.kart.canDrive = true;
                         GoFlashTimer = 1.2f;
                     }
                     break;
@@ -68,11 +79,38 @@ namespace KartRush
                     if (GoFlashTimer > 0f) GoFlashTimer -= Time.deltaTime;
                     break;
                 case State.Finished:
+                    RaceTime += 0f;
                     break;
             }
 
+            if (state != State.Countdown) UpdateStandings();
+
             var kb = UnityEngine.InputSystem.Keyboard.current;
             if (kb != null && kb.enterKey.wasPressedThisFrame && state == State.Finished) Restart();
+        }
+
+        float finishClock;
+
+        void UpdateStandings()
+        {
+            if (state == State.Finished) finishClock += Time.deltaTime; else finishClock = RaceTime;
+
+            foreach (var r in racers)
+                if (!r.Finished && r.Lap >= totalLaps) FinishRacer(r);
+
+            Standings.Clear();
+            Standings.AddRange(finishedOrder);
+            Standings.AddRange(racers.Where(r => !r.Finished).OrderByDescending(r => r.Progress));
+            if (PlayerRacer != null) PlayerPosition = Standings.IndexOf(PlayerRacer) + 1;
+        }
+
+        void FinishRacer(Racer r)
+        {
+            if (r.Finished) return;
+            r.Finished = true;
+            r.FinishTime = finishClock;
+            finishedOrder.Add(r);
+            if (!r.isPlayer) r.kart.canDrive = false;   // AI parks after the flag
         }
 
         public void OnCheckpoint(KartController who, Checkpoint cp)
@@ -101,6 +139,9 @@ namespace KartRush
             {
                 state = State.Finished;
                 kart.canDrive = false;
+                finishClock = RaceTime;
+                if (PlayerRacer != null) FinishRacer(PlayerRacer);
+                UpdateStandings();
             }
             else
             {
@@ -114,6 +155,18 @@ namespace KartRush
             int m = (int)(t / 60f);
             float s = t - m * 60f;
             return $"{m:00}:{s:00.000}";
+        }
+
+        public static string Ordinal(int n)
+        {
+            if (n % 100 >= 11 && n % 100 <= 13) return n + "th";
+            switch (n % 10)
+            {
+                case 1: return n + "st";
+                case 2: return n + "nd";
+                case 3: return n + "rd";
+                default: return n + "th";
+            }
         }
     }
 }

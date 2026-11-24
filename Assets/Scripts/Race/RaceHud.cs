@@ -8,7 +8,7 @@ namespace KartRush
     {
         public RaceManager race;
         public KartController kart;
-        public Text lapText, timeText, bestText, speedText, centerText, helpText;
+        public Text lapText, timeText, bestText, speedText, centerText, helpText, positionText, standingsText;
         public Image driftBar;
 
         static readonly Color[] DriftColors =
@@ -27,6 +27,23 @@ namespace KartRush
             timeText.text = RaceManager.FormatTime(race.RaceTime);
             bestText.text = "BEST " + RaceManager.FormatTime(race.BestLap);
             speedText.text = $"{Mathf.RoundToInt(kart.SpeedKmh)} <size=24>km/h</size>";
+
+            // Position + standings
+            int total = race.racers.Count;
+            if (positionText != null)
+                positionText.text = $"{race.PlayerPosition}<size=40>/{total}</size>";
+            if (standingsText != null)
+            {
+                var sb2 = new System.Text.StringBuilder();
+                for (int i = 0; i < race.Standings.Count; i++)
+                {
+                    var r = race.Standings[i];
+                    string hex = ColorUtility.ToHtmlStringRGB(r.color);
+                    string name = r.isPlayer ? r.displayName.ToUpper() : r.displayName;
+                    sb2.Append($"{i + 1}. <color=#{hex}>{name}</color>{(r.Finished ? "  FIN" : "")}\n");
+                }
+                standingsText.text = sb2.ToString();
+            }
 
             // Drift charge bar
             if (kart.IsDrifting)
@@ -52,7 +69,7 @@ namespace KartRush
                     centerText.fontSize = 140;
                     break;
                 case RaceManager.State.Finished:
-                    var sb = new System.Text.StringBuilder("FINISH!\n");
+                    var sb = new System.Text.StringBuilder($"{RaceManager.Ordinal(race.PlayerPosition)} PLACE!\n");
                     sb.Append("<size=40>");
                     for (int i = 0; i < race.LapTimes.Count; i++)
                         sb.Append($"Lap {i + 1}  {RaceManager.FormatTime(race.LapTimes[i])}\n");

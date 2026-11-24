@@ -83,10 +83,33 @@ namespace KartRush.EditorTools
             }
 
             // Kart
-            int startIdx = Samples - 6;
-            Vector3 startPos = center[startIdx] + Vector3.up * 0.6f;
-            float startYaw = Mathf.Atan2(tangent[startIdx].x, tangent[startIdx].z) * Mathf.Rad2Deg;
-            var kart = BuildKart(startPos, startYaw, kartRed, kartDark, kartWhite, skin, suit);
+            // Start grid: 2 karts per row, rows 8 m apart; the player starts in the third row.
+            const int playerSlot = 4;
+            GridSlot(playerSlot, out Vector3 startPos, out float startYaw);
+            var kart = BuildKart("Kart_Player", startPos, startYaw, kartRed, kartDark, kartWhite, skin, suit);
+            AddRacer(kart, race, "You", true, new Color(0.9f, 0.08f, 0.1f), startPos, startYaw);
+
+            var rivals = new[]
+            {
+                new Rival("Bolt",   new Color(0.15f, 0.45f, 1.0f), new Color(1.0f, 0.85f, 0.1f), 0.99f, -3.0f),
+                new Rival("Dash",   new Color(1.0f, 0.8f, 0.1f),   new Color(0.2f, 0.2f, 0.25f), 0.96f,  3.0f),
+                new Rival("Nitro",  new Color(0.15f, 0.75f, 0.3f), new Color(0.95f, 0.95f, 0.95f), 0.93f, -1.5f),
+                new Rival("Turbo",  new Color(0.65f, 0.25f, 0.9f), new Color(1.0f, 0.5f, 0.1f),  0.90f,  1.5f),
+                new Rival("Zippy",  new Color(1.0f, 0.5f, 0.1f),   new Color(0.15f, 0.35f, 0.9f), 0.87f,  0f),
+            };
+            int[] rivalSlots = { 0, 1, 2, 3, 5 };
+            for (int i = 0; i < rivals.Length; i++)
+            {
+                var rv = rivals[i];
+                GridSlot(rivalSlots[i], out Vector3 p, out float y);
+                var body = GetMat("Kart_" + rv.name, rv.body, 0.6f);
+                var suitMat = GetMat("Suit_" + rv.name, rv.suit, 0.3f);
+                var ai = BuildKart("Kart_" + rv.name, p, y, body, kartDark, kartWhite, skin, suitMat);
+                AddRacer(ai, race, rv.name, false, rv.body, p, y);
+                var driver = ai.gameObject.AddComponent<KartAutoDriver>();
+                driver.skill = rv.skill;
+                driver.laneOffset = rv.lane;
+            }
 
             // Camera
             var camGo = new GameObject("Main Camera");
@@ -287,25 +310,61 @@ namespace KartRush.EditorTools
 
         // ---------------------------------------------------------------- kart
 
-        static KartController BuildKart(Vector3 pos, float yaw, Material red, Material dark, Material white, Material skin, Material suit)
+        struct Rival
         {
-            var kartGo = new GameObject("Kart");
+            public string name; public Color body, suit; public float skill, lane;
+            public Rival(string n, Color b, Color s, float sk, float l) { name = n; body = b; suit = s; skill = sk; lane = l; }
+        }
+
+        static void GridSlot(int slot, out Vector3 pos, out float yaw)
+        {
+            int row = slot / 2, col = slot % 2;
+            int idx = Samples - 4 - row * 3;
+            pos = center[idx] + right[idx] * (col == 0 ? -3.2f : 3.2f) + Vector3.up * 0.6f;
+            yaw = Mathf.Atan2(tangent[idx].x, tangent[idx].z) * Mathf.Rad2Deg;
+        }
+
+        static void AddRacer(KartController kart, RaceManager race, string displayName, bool isPlayer, Color color, Vector3 pos, float yaw)
+        {
+            var r = kart.gameObject.AddComponent<Racer>();
+            r.displayName = displayName;
+            r.isPlayer = isPlayer;
+            r.color = color;
+            r.race = race;
+            r.startPosition = pos;
+            r.startYaw = yaw;
+            race.racers.Add(r);
+        }
+
+        static PhysicsMaterial GetSpherePhysicsMaterial()
+        {
+            string pmPath = "Assets/Physics/KartSphere.asset";
+            var pm = AssetDatabase.LoadAssetAtPath<PhysicsMaterial>(pmPath);
+            if (pm == null)
+            {
+                pm = new PhysicsMaterial("KartSphere");
+                AssetDatabase.CreateAsset(pm, pmPath);
+            }
+            pm.dynamicFriction = 0f;
+            pm.staticFriction = 0f;
+            pm.bounciness = 0.15f;
+            pm.frictionCombine = PhysicsMaterialCombine.Minimum;
+            pm.bounceCombine = PhysicsMaterialCombine.Maximum;
+            EditorUtility.SetDirty(pm);
+            return pm;
+        }
+
+        static KartController BuildKart(string name, Vector3 pos, float yaw, Material red, Material dark, Material white, Material skin, Material suit)
+        {
+            var kartGo = new GameObject(name);
             kartGo.transform.position = pos - Vector3.up * 0.5f;
             kartGo.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
 
-            var sphereGo = new GameObject("KartSphere");
+            var sphereGo = new GameObject(name + "_Sphere");
             sphereGo.transform.position = pos;
             var sc = sphereGo.AddComponent<SphereCollider>();
             sc.radius = 0.5f;
-            string pmPath = "Assets/Physics/KartSphere.asset";
-            AssetDatabase.DeleteAsset(pmPath);
-            var pm = new PhysicsMaterial("KartSphere")
-            {
-                dynamicFriction = 0f, staticFriction = 0f, bounciness = 0.15f,
-                frictionCombine = PhysicsMaterialCombine.Minimum, bounceCombine = PhysicsMaterialCombine.Maximum
-            };
-            AssetDatabase.CreateAsset(pm, pmPath);
-            sc.sharedMaterial = AssetDatabase.LoadAssetAtPath<PhysicsMaterial>(pmPath);
+            sc.sharedMaterial = GetSpherePhysicsMaterial();
             var rb = sphereGo.AddComponent<Rigidbody>();
             rb.mass = 1f;
             rb.linearDamping = 0f;
@@ -448,6 +507,12 @@ namespace KartRush.EditorTools
             hud.helpText = MakeText(t, "Help", new Vector2(0f, 0f), new Vector2(40f, 30f), 26, TextAnchor.LowerLeft, 1100f);
             hud.helpText.text = "W/S gas / brake    A/D steer    SPACE drift (release for mini-turbo)    R respawn";
             hud.helpText.color = new Color(1f, 1f, 1f, 0.8f);
+
+            hud.positionText = MakeText(t, "Position", new Vector2(1f, 1f), new Vector2(-40f, -20f), 120, TextAnchor.UpperRight, 500f);
+            hud.positionText.supportRichText = true;
+            hud.standingsText = MakeText(t, "Standings", new Vector2(1f, 1f), new Vector2(-40f, -170f), 30, TextAnchor.UpperRight, 400f);
+            hud.standingsText.supportRichText = true;
+            hud.standingsText.rectTransform.sizeDelta = new Vector2(400f, 300f);
 
             hud.centerText = MakeText(t, "Center", new Vector2(0.5f, 0.5f), new Vector2(0f, 80f), 140, TextAnchor.MiddleCenter, 1400f);
             hud.centerText.rectTransform.sizeDelta = new Vector2(1400f, 700f);
