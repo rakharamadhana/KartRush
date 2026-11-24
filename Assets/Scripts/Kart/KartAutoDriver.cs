@@ -93,7 +93,8 @@ namespace KartRush
                 float metersAhead = (racer.Progress - race.PlayerRacer.Progress) * (TrackMetersPerSample());
                 band = 1f + Mathf.Clamp(-metersAhead / 300f, -0.06f, 0.08f);
             }
-            kart.maxSpeed = baseMaxSpeed * skill * band;
+            float diff = (racer != null && racer.isPlayer) ? 1f : race.AiSpeedFactor;
+            kart.maxSpeed = baseMaxSpeed * skill * band * diff;
 
             kart.scriptedSteer = Mathf.Clamp(angle / steerAngleForFullLock, -1f, 1f);
             kart.scriptedThrottle = Mathf.Abs(angle) > cornerSlowAngle ? 0.5f : 1f;

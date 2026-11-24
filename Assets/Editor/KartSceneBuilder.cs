@@ -573,6 +573,16 @@ namespace KartRush.EditorTools
             hud.driftBar = barGo.GetComponent<Image>();
             hud.driftBar.enabled = false;
 
+            // Minimap under the lap/time readout (dots are children, centered on the map)
+            var mapGo = new GameObject("MiniMap", typeof(RectTransform), typeof(RawImage));
+            mapGo.transform.SetParent(t, false);
+            var mrt = (RectTransform)mapGo.transform;
+            mrt.anchorMin = mrt.anchorMax = new Vector2(0f, 1f);
+            mrt.pivot = new Vector2(0f, 1f);
+            mrt.anchoredPosition = new Vector2(40f, -235f);
+            var map = mapGo.AddComponent<MiniMap>();
+            map.race = race;
+
             // Title / pause menu (last sibling => drawn on top)
             var panel = new GameObject("MenuPanel", typeof(RectTransform), typeof(Image));
             panel.transform.SetParent(t, false);

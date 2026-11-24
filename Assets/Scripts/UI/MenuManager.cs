@@ -19,7 +19,7 @@ namespace KartRush
         int sel;
         int laps = 3;
 
-        static readonly string[] TitleItems = { "Start Race", "Laps", "Quit" };
+        static readonly string[] TitleItems = { "Start Race", "Laps", "Difficulty", "Quit" };
         static readonly string[] PauseItems = { "Resume", "Restart Race", "Music", "Back to Title" };
 
         void Start()
@@ -66,6 +66,7 @@ namespace KartRush
             {
                 string label = items[i];
                 if (mode == Mode.Title && i == 1) label = $"Laps:  < {laps} >";
+                if (mode == Mode.Title && i == 2) label = $"Difficulty:  < {RaceManager.DifficultyNames[race.difficulty]} >";
                 if (mode == Mode.Pause && i == 2) label = "Music:  " + (MusicPlayer.Instance == null || MusicPlayer.Instance.MusicOn ? "On" : "Off");
                 sb.Append(i == sel ? $"<color=#FFD633>>  {label}  <</color>\n" : $"{label}\n");
             }
@@ -118,6 +119,13 @@ namespace KartRush
                 Refresh();
             }
 
+            if (mode == Mode.Title && sel == 2 && (left || right))
+            {
+                race.difficulty = Mathf.Clamp(race.difficulty + (right ? 1 : -1), 0, 2);
+                Sfx.Play(Sfx.MenuMove, 0.6f);
+                Refresh();
+            }
+
             if (ok) Activate();
         }
 
@@ -138,6 +146,10 @@ namespace KartRush
                         Refresh();
                         break;
                     case 2:
+                        race.difficulty = (race.difficulty + 1) % 3;
+                        Refresh();
+                        break;
+                    case 3:
 #if UNITY_EDITOR
                         UnityEditor.EditorApplication.isPlaying = false;
 #else

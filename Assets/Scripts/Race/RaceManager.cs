@@ -66,6 +66,12 @@ namespace KartRush
             if (cam != null) cam.Snap();
         }
 
+        public static readonly string[] DifficultyNames = { "Easy", "Normal", "Hard" };
+        static readonly float[] DifficultySpeed = { 0.90f, 0.96f, 1.03f };
+        /// <summary>0 = Easy, 1 = Normal, 2 = Hard. Scales every rival's top speed.</summary>
+        public int difficulty = 1;
+        public float AiSpeedFactor => DifficultySpeed[Mathf.Clamp(difficulty, 0, 2)];
+
         /// <summary>True while the title screen is up: the countdown does not run.</summary>
         public bool Waiting { get; set; }
         int lastBeep = -1;
