@@ -10,6 +10,7 @@ namespace KartRush
         public KartController kart;
         public Text lapText, timeText, bestText, speedText, centerText, helpText, positionText, standingsText, itemText;
         public Image driftBar;
+        public MenuManager menu;
         KartItems items;
 
         static readonly Color[] DriftColors =
@@ -89,6 +90,7 @@ namespace KartRush
                     centerText.fontSize = 90;
                     break;
             }
+            if (menu != null && menu.IsOpen) centerText.text = "";
         }
     }
 }

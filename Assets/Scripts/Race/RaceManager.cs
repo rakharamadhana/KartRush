@@ -52,6 +52,8 @@ namespace KartRush
             nextCheckpoint = 0;
             crossedStartOnce = false;
             GoFlashTimer = 0f;
+            lastBeep = -1;
+            Sfx.Build();
 
             ItemBox.ResetAll();
             Banana.ClearAll();
@@ -64,17 +66,29 @@ namespace KartRush
             if (cam != null) cam.Snap();
         }
 
+        /// <summary>True while the title screen is up: the countdown does not run.</summary>
+        public bool Waiting { get; set; }
+        int lastBeep = -1;
+
         void Update()
         {
+            if (Waiting) return;
             switch (state)
             {
                 case State.Countdown:
                     CountdownRemaining -= Time.deltaTime;
+                    int whole = Mathf.CeilToInt(Mathf.Max(CountdownRemaining, 0f));
+                    if (CountdownRemaining > 0f && whole != lastBeep)
+                    {
+                        lastBeep = whole;
+                        Sfx.Play(Sfx.Beep, 0.8f);
+                    }
                     if (CountdownRemaining <= 0f)
                     {
                         state = State.Racing;
                         foreach (var r in racers) r.kart.canDrive = true;
                         GoFlashTimer = 1.2f;
+                        Sfx.Play(Sfx.Go, 0.9f);
                     }
                     break;
                 case State.Racing:
@@ -146,10 +160,12 @@ namespace KartRush
                 finishClock = RaceTime;
                 if (PlayerRacer != null) FinishRacer(PlayerRacer);
                 UpdateStandings();
+                Sfx.Play(Sfx.Finish, 0.9f);
             }
             else
             {
                 CurrentLap = LapTimes.Count + 1;
+                Sfx.Play(Sfx.Lap, 0.8f);
             }
         }
 

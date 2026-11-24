@@ -53,6 +53,7 @@ namespace KartRush
             float roll = Random.value * (wMushroom + wShell + wBanana);
             held = roll < wMushroom ? ItemType.Mushroom : roll < wMushroom + wShell ? ItemType.Shell : ItemType.Banana;
             aiTimer = Random.Range(1.5f, 4f);
+            Sfx.Play(Sfx.Pickup, IsPlayer ? 0.8f : 0.4f, IsPlayer ? (Vector3?)null : transform.position);
             return true;
         }
 
@@ -109,6 +110,7 @@ namespace KartRush
             if (held == ItemType.None || !kart.canDrive || kart.IsSpinning) return;
             var item = held;
             held = ItemType.None;
+            Sfx.Play(Sfx.UseItem, IsPlayer ? 0.8f : 0.4f, IsPlayer ? (Vector3?)null : transform.position);
             switch (item)
             {
                 case ItemType.Mushroom:

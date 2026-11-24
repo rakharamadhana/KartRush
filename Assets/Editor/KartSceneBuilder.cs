@@ -133,6 +133,7 @@ namespace KartRush.EditorTools
             cam.nearClipPlane = 0.3f;
             cam.farClipPlane = 800f;
             camGo.AddComponent<AudioListener>();
+            camGo.AddComponent<MusicPlayer>();
             var urpCam = camGo.AddComponent<UniversalAdditionalCameraData>();
             urpCam.renderPostProcessing = true;
             urpCam.antialiasing = AntialiasingMode.SubpixelMorphologicalAntiAliasing;
@@ -349,6 +350,7 @@ namespace KartRush.EditorTools
             r.startYaw = yaw;
             race.racers.Add(r);
             kart.gameObject.AddComponent<KartItems>();
+            kart.gameObject.AddComponent<KartAudio>();
         }
 
         // Rows of item boxes across the road at a few points around the lap.
@@ -546,7 +548,7 @@ namespace KartRush.EditorTools
             hud.bestText = MakeText(t, "Best", new Vector2(0f, 1f), new Vector2(40f, -170f), 36, TextAnchor.UpperLeft, 600f);
             hud.speedText = MakeText(t, "Speed", new Vector2(1f, 0f), new Vector2(-40f, 40f), 80, TextAnchor.LowerRight, 600f);
             hud.helpText = MakeText(t, "Help", new Vector2(0f, 0f), new Vector2(40f, 30f), 26, TextAnchor.LowerLeft, 1100f);
-            hud.helpText.text = "W/S gas / brake    A/D steer    SPACE drift (release for mini-turbo)    E use item    R respawn";
+            hud.helpText.text = "W/S gas / brake    A/D steer    SPACE drift (release for mini-turbo)    E use item    R respawn    ESC pause";
             hud.itemText = MakeText(t, "Item", new Vector2(0.5f, 1f), new Vector2(0f, -30f), 56, TextAnchor.UpperCenter, 700f);
             hud.itemText.supportRichText = true;
             hud.helpText.color = new Color(1f, 1f, 1f, 0.8f);
@@ -570,6 +572,29 @@ namespace KartRush.EditorTools
             rt.sizeDelta = new Vector2(420f, 16f);
             hud.driftBar = barGo.GetComponent<Image>();
             hud.driftBar.enabled = false;
+
+            // Title / pause menu (last sibling => drawn on top)
+            var panel = new GameObject("MenuPanel", typeof(RectTransform), typeof(Image));
+            panel.transform.SetParent(t, false);
+            var prt = (RectTransform)panel.transform;
+            prt.anchorMin = Vector2.zero; prt.anchorMax = Vector2.one;
+            prt.offsetMin = prt.offsetMax = Vector2.zero;
+            var dim = panel.GetComponent<Image>();
+            dim.color = new Color(0.02f, 0.03f, 0.08f, 0.62f);
+            dim.raycastTarget = false;
+
+            var menu = canvasGo.AddComponent<MenuManager>();
+            menu.race = race;
+            menu.panel = panel;
+            menu.titleText = MakeText(panel.transform, "MenuTitle", new Vector2(0.5f, 0.5f), new Vector2(0f, 300f), 150, TextAnchor.MiddleCenter, 1400f);
+            menu.titleText.color = new Color(1f, 0.85f, 0.2f);
+            menu.titleText.rectTransform.sizeDelta = new Vector2(1400f, 220f);
+            menu.menuText = MakeText(panel.transform, "MenuItems", new Vector2(0.5f, 0.5f), new Vector2(0f, 100f), 64, TextAnchor.UpperCenter, 1000f);
+            menu.menuText.supportRichText = true;
+            menu.menuText.rectTransform.sizeDelta = new Vector2(1000f, 420f);
+            menu.hintText = MakeText(panel.transform, "MenuHint", new Vector2(0.5f, 0f), new Vector2(0f, 60f), 30, TextAnchor.LowerCenter, 1500f);
+            menu.hintText.color = new Color(1f, 1f, 1f, 0.75f);
+            hud.menu = menu;
         }
 
         static Text MakeText(Transform parent, string name, Vector2 anchor, Vector2 pos, int size, TextAnchor align, float width)
