@@ -19,7 +19,11 @@ namespace KartRush
         int sel;
         int laps = 3;
 
+        #if UNITY_WEBGL
+        static readonly string[] TitleItems = { "Start Race", "Laps", "Difficulty" };   // no Quit in a browser
+#else
         static readonly string[] TitleItems = { "Start Race", "Laps", "Difficulty", "Quit" };
+#endif
         static readonly string[] PauseItems = { "Resume", "Restart Race", "Music", "Back to Title" };
         static readonly string[] FinishItems = { "Restart Race", "Main Menu" };
 
