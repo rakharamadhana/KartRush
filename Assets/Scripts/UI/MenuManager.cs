@@ -53,7 +53,7 @@ namespace KartRush
             titleText.text = m == Mode.Title ? "KART RUSH" : m == Mode.Pause ? "PAUSED" : "";
             titleText.fontSize = m == Mode.Title ? 150 : 110;
             // Finish menu sits low so the result text stays visible; the background stays light so the victory lap shows.
-            menuText.rectTransform.anchoredPosition = new Vector2(0f, m == Mode.Finish ? -370f : 100f);
+            menuText.rectTransform.anchoredPosition = new Vector2(0f, m == Mode.Finish ? -370f : -30f);
             panel.GetComponent<Image>().color = new Color(0.02f, 0.03f, 0.08f, m == Mode.Finish ? 0.18f : 0.62f);
             Refresh();
         }

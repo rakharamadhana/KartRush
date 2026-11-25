@@ -625,7 +625,7 @@ namespace KartRush.EditorTools
             menu.titleText = MakeText(panel.transform, "MenuTitle", new Vector2(0.5f, 0.5f), new Vector2(0f, 300f), 150, TextAnchor.MiddleCenter, 1400f);
             menu.titleText.color = new Color(1f, 0.85f, 0.2f);
             menu.titleText.rectTransform.sizeDelta = new Vector2(1400f, 220f);
-            menu.menuText = MakeText(panel.transform, "MenuItems", new Vector2(0.5f, 0.5f), new Vector2(0f, 100f), 64, TextAnchor.UpperCenter, 1000f);
+            menu.menuText = MakeText(panel.transform, "MenuItems", new Vector2(0.5f, 0.5f), new Vector2(0f, -30f), 64, TextAnchor.UpperCenter, 1000f);
             menu.menuText.supportRichText = true;
             menu.menuText.rectTransform.sizeDelta = new Vector2(1000f, 420f);
             menu.hintText = MakeText(panel.transform, "MenuHint", new Vector2(0.5f, 0f), new Vector2(0f, 60f), 30, TextAnchor.LowerCenter, 1500f);

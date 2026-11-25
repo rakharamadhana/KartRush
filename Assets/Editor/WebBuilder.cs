@@ -16,6 +16,13 @@ namespace KartRush.EditorTools
             EditorUserBuildSettings.SwitchActiveBuildTarget(BuildTargetGroup.WebGL, BuildTarget.WebGL);
         }
 
+        /// <summary>Batch entry point: regenerate the scene, then build WebGL.</summary>
+        public static void BuildAll()
+        {
+            KartSceneBuilder.Build();
+            Build();
+        }
+
         [MenuItem("KartRush/Build WebGL (docs/)")]
         public static void Build()
         {
