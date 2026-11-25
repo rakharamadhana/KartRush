@@ -6,7 +6,7 @@ namespace KartRush
     public class ItemAssets : MonoBehaviour
     {
         public static ItemAssets Instance { get; private set; }
-        public Material bananaMat, bananaDarkMat, shellMat, shellRingMat;
+        public Material bananaMat, bananaDarkMat, shellMat, shellRingMat, sparkMat, smokeMat;
 
         void Awake() => Instance = this;
     }

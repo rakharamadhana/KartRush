@@ -9,6 +9,7 @@ namespace KartRush
         KartController kart;
         AudioSource engine, screech;
         bool isPlayer, wasBoosting, wasSpinning;
+        int lastLevel;
 
         void Start()
         {
@@ -50,6 +51,9 @@ namespace KartRush
             Vector3? at = isPlayer ? (Vector3?)null : transform.position;
             if (kart.IsBoosting && !wasBoosting) Sfx.Play(Sfx.Boost, 0.7f, at);
             if (kart.IsSpinning && !wasSpinning) Sfx.Play(Sfx.Spin, 0.8f, at);
+            // "Ding" each time the drift charge reaches a new mini-turbo level (higher pitch per level).
+            if (kart.DriftLevel > lastLevel && isPlayer) Sfx.Play(Sfx.ChargeUp, 0.7f, null, 0.9f + 0.25f * kart.DriftLevel);
+            lastLevel = kart.DriftLevel;
             wasBoosting = kart.IsBoosting;
             wasSpinning = kart.IsSpinning;
         }

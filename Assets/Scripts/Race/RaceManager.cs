@@ -55,6 +55,7 @@ namespace KartRush
             lastBeep = -1;
             Sfx.Build();
 
+            ResetDriverForNewRace();
             ItemBox.ResetAll();
             Banana.ClearAll();
             Shell.ClearAll();
@@ -79,6 +80,8 @@ namespace KartRush
         void Update()
         {
             if (Waiting) return;
+            var kbd = UnityEngine.InputSystem.Keyboard.current;
+            if (kbd != null && kbd.tKey.wasPressedThisFrame) SetAutopilot(!Autopilot);
             switch (state)
             {
                 case State.Countdown:
@@ -109,8 +112,6 @@ namespace KartRush
 
             if (state != State.Countdown) UpdateStandings();
 
-            var kb = UnityEngine.InputSystem.Keyboard.current;
-            if (kb != null && kb.enterKey.wasPressedThisFrame && state == State.Finished) Restart();
         }
 
         float finishClock;
@@ -135,6 +136,48 @@ namespace KartRush
             r.FinishTime = finishClock;
             finishedOrder.Add(r);
             if (!r.isPlayer) r.kart.canDrive = false;   // AI parks after the flag
+        }
+
+        /// <summary>Player autopilot (T key). Off by default; automated tests switch it on.</summary>
+        public bool Autopilot { get; private set; }
+
+        public void SetAutopilot(bool on)
+        {
+            Autopilot = on;
+            if (kart == null || state == State.Finished) return;   // the victory lap keeps its own driver
+            if (on) EnsureDriver(1f); else RemoveDriver();
+        }
+
+        void EnsureDriver(float skill)
+        {
+            var d = kart.GetComponent<KartAutoDriver>();
+            if (d == null) d = kart.gameObject.AddComponent<KartAutoDriver>();
+            d.rubberBand = false;
+            d.skill = skill;
+            d.laneOffset = 0f;
+            kart.useScriptedInput = true;
+        }
+
+        void RemoveDriver()
+        {
+            var d = kart.GetComponent<KartAutoDriver>();
+            if (d != null) Destroy(d);
+            kart.useScriptedInput = false;
+            kart.scriptedThrottle = kart.scriptedBrake = kart.scriptedSteer = 0f;
+            kart.scriptedDrift = false;
+        }
+
+        /// <summary>After the flag the player's kart keeps rolling under AI control (victory lap) while the finish menu shows.</summary>
+        void StartCelebrationLap()
+        {
+            kart.canDrive = true;
+            EnsureDriver(0.85f);
+        }
+
+        void ResetDriverForNewRace()
+        {
+            if (kart == null) return;
+            if (Autopilot) EnsureDriver(1f); else RemoveDriver();
         }
 
         public void OnCheckpoint(KartController who, Checkpoint cp)
@@ -162,7 +205,7 @@ namespace KartRush
             if (LapTimes.Count >= totalLaps)
             {
                 state = State.Finished;
-                kart.canDrive = false;
+                StartCelebrationLap();
                 finishClock = RaceTime;
                 if (PlayerRacer != null) FinishRacer(PlayerRacer);
                 UpdateStandings();

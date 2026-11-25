@@ -7,7 +7,7 @@ namespace KartRush
     /// <summary>Title screen and pause menu. Keyboard (arrows/WASD, Enter, Esc) or gamepad (d-pad, A, Start).</summary>
     public class MenuManager : MonoBehaviour
     {
-        public enum Mode { None, Title, Pause }
+        public enum Mode { None, Title, Pause, Finish }
 
         public RaceManager race;
         public GameObject panel;
@@ -21,6 +21,10 @@ namespace KartRush
 
         static readonly string[] TitleItems = { "Start Race", "Laps", "Difficulty", "Quit" };
         static readonly string[] PauseItems = { "Resume", "Restart Race", "Music", "Back to Title" };
+        static readonly string[] FinishItems = { "Restart Race", "Main Menu" };
+
+        public float finishMenuDelay = 3f;   // lets the victory lap and fanfare play first
+        float finishTimer;
 
         void Start()
         {
@@ -42,8 +46,11 @@ namespace KartRush
             race.Waiting = (m == Mode.Title);
             Time.timeScale = m == Mode.Pause ? 0f : 1f;
             AudioListener.pause = m == Mode.Pause;
-            titleText.text = m == Mode.Title ? "KART RUSH" : "PAUSED";
+            titleText.text = m == Mode.Title ? "KART RUSH" : m == Mode.Pause ? "PAUSED" : "";
             titleText.fontSize = m == Mode.Title ? 150 : 110;
+            // Finish menu sits low so the result text stays visible; the background stays light so the victory lap shows.
+            menuText.rectTransform.anchoredPosition = new Vector2(0f, m == Mode.Finish ? -370f : 100f);
+            panel.GetComponent<Image>().color = new Color(0.02f, 0.03f, 0.08f, m == Mode.Finish ? 0.18f : 0.62f);
             Refresh();
         }
 
@@ -56,7 +63,7 @@ namespace KartRush
             AudioListener.pause = false;
         }
 
-        string[] Items => mode == Mode.Title ? TitleItems : PauseItems;
+        string[] Items => mode == Mode.Title ? TitleItems : mode == Mode.Finish ? FinishItems : PauseItems;
 
         void Refresh()
         {
@@ -73,6 +80,7 @@ namespace KartRush
             menuText.text = sb.ToString();
             hintText.text = mode == Mode.Title
                 ? "UP / DOWN  select      LEFT / RIGHT  change      ENTER  confirm"
+                : mode == Mode.Finish ? "UP / DOWN  select      ENTER  confirm"
                 : "UP / DOWN  select      ENTER  confirm      ESC  resume";
         }
 
@@ -103,6 +111,8 @@ namespace KartRush
 
             if (mode == Mode.None)
             {
+                finishTimer = race.state == RaceManager.State.Finished ? finishTimer + Time.deltaTime : 0f;
+                if (finishTimer >= finishMenuDelay) { finishTimer = 0f; Open(Mode.Finish); return; }
                 if (esc) { Sfx.Play(Sfx.MenuSelect, 0.6f); Open(Mode.Pause); }
                 return;
             }
@@ -157,6 +167,11 @@ namespace KartRush
 #endif
                         break;
                 }
+            }
+            else if (mode == Mode.Finish)
+            {
+                if (sel == 0) { Close(); race.Restart(); }
+                else { race.Restart(); Open(Mode.Title); }
             }
             else
             {

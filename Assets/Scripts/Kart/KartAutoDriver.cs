@@ -34,6 +34,11 @@ namespace KartRush
             index = ClosestIndex();
         }
 
+        void OnDestroy()
+        {
+            if (kart != null && baseMaxSpeed > 0f) kart.maxSpeed = baseMaxSpeed;
+        }
+
         int ClosestIndex()
         {
             var pts = race.racingLine;

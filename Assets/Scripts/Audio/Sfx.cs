@@ -8,7 +8,7 @@ namespace KartRush
     {
         const int SR = 22050;
 
-        public static AudioClip Beep, Go, Pickup, UseItem, Boost, Spin, Lap, Finish, MenuMove, MenuSelect, Engine, Screech, Music;
+        public static AudioClip Beep, Go, Pickup, UseItem, Boost, Spin, Lap, Finish, MenuMove, MenuSelect, ChargeUp, Engine, Screech, Music;
 
         public static void Build()
         {
@@ -35,6 +35,7 @@ namespace KartRush
                 float local = i < 3 ? 1f - (t - i * 0.15f) / 0.3f : 1f - (t - 0.45f) / 0.75f;
                 return (Square(f[i] * t) * 0.18f + Sine(f[i] * t) * 0.25f) * Mathf.Clamp01(local);
             });
+            ChargeUp = Make("ChargeUp", 0.14f, (t, p) => Square((t < 0.06f ? 1000f : 1500f) * t) * 0.3f * (1f - p * 0.4f));
             MenuMove = Make("MenuMove", 0.06f, (t, p) => Square(600f * t) * 0.25f * (1f - p));
             MenuSelect = Make("MenuSelect", 0.14f, (t, p) => Square((900f + 400f * p) * t) * 0.3f * (1f - p * 0.5f));
 
@@ -55,13 +56,14 @@ namespace KartRush
 
         // ------------------------------------------------------------ one-shot playback
 
-        public static void Play(AudioClip clip, float volume = 1f, Vector3? at = null)
+        public static void Play(AudioClip clip, float volume = 1f, Vector3? at = null, float pitch = 1f)
         {
             if (clip == null) return;
             var go = new GameObject("Sfx_" + clip.name);
             var src = go.AddComponent<AudioSource>();
             src.clip = clip;
             src.volume = volume;
+            src.pitch = pitch;
             if (at.HasValue)
             {
                 go.transform.position = at.Value;
@@ -72,7 +74,7 @@ namespace KartRush
                 src.dopplerLevel = 0f;
             }
             src.Play();
-            UnityEngine.Object.Destroy(go, clip.length + 0.1f);
+            UnityEngine.Object.Destroy(go, clip.length / Mathf.Max(0.1f, pitch) + 0.1f);
         }
 
         // ------------------------------------------------------------ synthesis helpers

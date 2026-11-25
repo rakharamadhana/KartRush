@@ -36,12 +36,40 @@ namespace KartRush
             if (kart != null && kart.sphere != null) BySphere.Remove(kart.sphere);
         }
 
-        public void Clear() { held = ItemType.None; aiTimer = 0f; }
+        // Roulette: after grabbing a box the item name flickers for a moment, then the real item is revealed.
+        public bool Rolling { get; private set; }
+        public ItemType RollDisplay { get; private set; }
+        public float rollSeconds = 1.6f;
+        ItemType pending;
+        float rollTimer, flipTimer;
+
+        public void Clear() { held = ItemType.None; aiTimer = 0f; Rolling = false; }
+
+        void UpdateRoll()
+        {
+            rollTimer -= Time.deltaTime;
+            flipTimer -= Time.deltaTime;
+            if (flipTimer <= 0f)
+            {
+                flipTimer = 0.08f;
+                int next = (int)RollDisplay % 3 + 1;
+                if (Random.value < 0.35f) next = next % 3 + 1;
+                RollDisplay = (ItemType)next;
+                if (IsPlayer) Sfx.Play(Sfx.MenuMove, 0.25f, null, 1.5f);
+            }
+            if (rollTimer <= 0f)
+            {
+                Rolling = false;
+                held = pending;
+                aiTimer = Random.Range(0.5f, 2.5f);
+                Sfx.Play(Sfx.Pickup, IsPlayer ? 0.8f : 0.4f, IsPlayer ? (Vector3?)null : transform.position);
+            }
+        }
 
         /// <summary>Hand out a random item; being further back gets stronger / more useful items.</summary>
         public bool GiveRandom()
         {
-            if (held != ItemType.None) return false;
+            if (held != ItemType.None || Rolling || Finished) return false;
             float back = 0.5f;
             var race = racer != null ? racer.race : null;
             if (race != null && race.Standings.Count > 1)
@@ -51,14 +79,21 @@ namespace KartRush
             float wShell = Mathf.Lerp(15f, 35f, back);
             float wBanana = Mathf.Lerp(55f, 10f, back);
             float roll = Random.value * (wMushroom + wShell + wBanana);
-            held = roll < wMushroom ? ItemType.Mushroom : roll < wMushroom + wShell ? ItemType.Shell : ItemType.Banana;
-            aiTimer = Random.Range(1.5f, 4f);
-            Sfx.Play(Sfx.Pickup, IsPlayer ? 0.8f : 0.4f, IsPlayer ? (Vector3?)null : transform.position);
+            pending = roll < wMushroom ? ItemType.Mushroom : roll < wMushroom + wShell ? ItemType.Shell : ItemType.Banana;
+            Rolling = true;
+            rollTimer = rollSeconds;
+            flipTimer = 0f;
+            RollDisplay = (ItemType)Random.Range(1, 4);
             return true;
         }
 
+        /// <summary>Once a kart has taken the flag it is on its victory lap: no pickups, no item use.</summary>
+        bool Finished => racer != null && racer.Finished;
+
         void Update()
         {
+            if (Finished) { held = ItemType.None; Rolling = false; return; }
+            if (Rolling) UpdateRoll();
             if (IsPlayer)
             {
                 var kb = Keyboard.current;

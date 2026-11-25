@@ -41,6 +41,10 @@ namespace KartRush
         public float boostSpeed = 44f;
         public float boostAcceleration = 60f;
 
+        [Header("Drift feedback")]
+        public float hopDuration = 0.3f;
+        public float hopHeight = 0.6f;
+
         [Header("Hits")]
         public float spinDuration = 1.3f;
         public float hitImmunity = 1.5f;
@@ -56,6 +60,9 @@ namespace KartRush
         public bool IsDrifting { get; private set; }
         public bool IsBoosting => boostTimer > 0f;
         public bool IsSpinning => spinTimer > 0f;
+        /// <summary>0..1 progress of the drift charge towards the last mini-turbo level.</summary>
+        public float DriftCharge01 => IsDrifting ? Mathf.Clamp01(driftTimer / miniTurboTimes[miniTurboTimes.Length - 1]) : 0f;
+        public event System.Action DriftStarted;
         public int DriftLevel { get; private set; }   // 0 = none, 1..3 = mini-turbo charge
         public float ForwardSpeed { get; private set; }
         public float SpeedKmh => Mathf.Abs(ForwardSpeed) * 3.6f;
@@ -65,7 +72,7 @@ namespace KartRush
         float steerInput, throttleInput, brakeInput;
         bool driftHeld, driftPressedThisFrame;
         float driftDir, driftTimer, boostTimer;
-        float spinTimer, spinTotal = 1f, immuneTimer;
+        float spinTimer, spinTotal = 1f, immuneTimer, hopTimer;
         Vector3 groundNormal = Vector3.up;
         Vector3 smoothNormal = Vector3.up;
         Quaternion visualRoll = Quaternion.identity;
@@ -92,12 +99,13 @@ namespace KartRush
         {
             yaw = newYaw;
             sphere.position = position;
+            sphere.transform.position = position;
             sphere.linearVelocity = Vector3.zero;
             sphere.angularVelocity = Vector3.zero;
             transform.position = position - Vector3.up * sphere.GetComponent<SphereCollider>().radius;
             transform.rotation = Quaternion.Euler(0f, newYaw, 0f);
             driftTimer = 0f; IsDrifting = false; DriftLevel = 0; boostTimer = 0f;
-            spinTimer = 0f; immuneTimer = 0f;
+            spinTimer = 0f; immuneTimer = 0f; hopTimer = 0f;
         }
 
         public void SetCheckpointRespawn(Vector3 position, float newYaw)
@@ -147,6 +155,7 @@ namespace KartRush
             }
 
             if (boostTimer > 0f) boostTimer -= Time.deltaTime;
+            if (hopTimer > 0f) hopTimer -= Time.deltaTime;
 
             FollowSphere();
             AnimateVisuals();
@@ -202,6 +211,8 @@ namespace KartRush
                     driftDir = Mathf.Sign(steerInput);
                     driftTimer = 0f;
                     DriftLevel = 0;
+                    hopTimer = hopDuration;
+                    DriftStarted?.Invoke();
                 }
                 return;
             }
@@ -294,8 +305,9 @@ namespace KartRush
 
         void FollowSphere()
         {
+            // Use the interpolated transform (sphere.position is the raw 50 Hz physics value => visible stutter).
             float radius = sphere != null ? ((SphereCollider)sphere.GetComponent<Collider>()).radius : 0.5f;
-            transform.position = sphere.position - Vector3.up * radius;
+            transform.position = sphere.transform.position - Vector3.up * radius;
 
             smoothNormal = Vector3.Slerp(smoothNormal, IsGrounded ? groundNormal : Vector3.up, 8f * Time.deltaTime);
             Vector3 fwd = Vector3.ProjectOnPlane(Heading, smoothNormal);
@@ -318,6 +330,9 @@ namespace KartRush
                     var target = Quaternion.Euler(0f, slide, roll);
                     visual.localRotation = Quaternion.Slerp(visual.localRotation, target, 10f * Time.deltaTime);
                 }
+                // Little hop when a drift starts.
+                float hop = hopTimer > 0f ? hopHeight * Mathf.Sin(Mathf.PI * (1f - hopTimer / hopDuration)) : 0f;
+                visual.localPosition = new Vector3(0f, hop, 0f);
             }
 
             float steerAngle = steerInput * 28f;

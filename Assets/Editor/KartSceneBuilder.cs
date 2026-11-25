@@ -94,6 +94,8 @@ namespace KartRush.EditorTools
             itemAssets.bananaDarkMat = GetMat("BananaTip", new Color(0.25f, 0.15f, 0.05f), 0.3f);
             itemAssets.shellMat = GetMat("Shell", new Color(0.1f, 0.75f, 0.25f), 0.7f);
             itemAssets.shellRingMat = GetMat("ShellRing", new Color(0.97f, 0.97f, 0.9f), 0.4f);
+            itemAssets.sparkMat = GetParticleMaterial("ParticleSpark", true);
+            itemAssets.smokeMat = GetParticleMaterial("ParticleSmoke", false);
             BuildItemBoxes(track.transform, boxOuter, boxInner);
 
             // Kart
@@ -351,6 +353,7 @@ namespace KartRush.EditorTools
             race.racers.Add(r);
             kart.gameObject.AddComponent<KartItems>();
             kart.gameObject.AddComponent<KartAudio>();
+            kart.gameObject.AddComponent<KartEffects>();
         }
 
         // Rows of item boxes across the road at a few points around the lap.
@@ -390,7 +393,7 @@ namespace KartRush.EditorTools
             }
             pm.dynamicFriction = 0f;
             pm.staticFriction = 0f;
-            pm.bounciness = 0.15f;
+            pm.bounciness = 0f;   // any bounce makes the kart hop/jitter on the road
             pm.frictionCombine = PhysicsMaterialCombine.Minimum;
             pm.bounceCombine = PhysicsMaterialCombine.Maximum;
             EditorUtility.SetDirty(pm);
@@ -563,15 +566,38 @@ namespace KartRush.EditorTools
             hud.centerText.rectTransform.sizeDelta = new Vector2(1400f, 700f);
             hud.centerText.supportRichText = true;
 
-            var barGo = new GameObject("DriftBar", typeof(RectTransform), typeof(Image));
+            // Drift gauge: dark frame, coloured fill (width driven by the HUD), and ticks at each mini-turbo level.
+            var barGo = new GameObject("DriftGauge", typeof(RectTransform), typeof(Image));
             barGo.transform.SetParent(t, false);
             var rt = (RectTransform)barGo.transform;
             rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0f);
             rt.pivot = new Vector2(0.5f, 0f);
             rt.anchoredPosition = new Vector2(0f, 120f);
-            rt.sizeDelta = new Vector2(420f, 16f);
-            hud.driftBar = barGo.GetComponent<Image>();
-            hud.driftBar.enabled = false;
+            rt.sizeDelta = new Vector2(460f, 26f);
+            var frame = barGo.GetComponent<Image>();
+            frame.color = new Color(0f, 0f, 0f, 0.6f);
+            frame.raycastTarget = false;
+
+            var fillGo = new GameObject("Fill", typeof(RectTransform), typeof(Image));
+            fillGo.transform.SetParent(barGo.transform, false);
+            var frt = (RectTransform)fillGo.transform;
+            frt.anchorMin = new Vector2(0f, 0f); frt.anchorMax = new Vector2(0f, 1f);
+            frt.offsetMin = new Vector2(3f, 3f); frt.offsetMax = new Vector2(-3f, -3f);
+            hud.driftBar = fillGo.GetComponent<Image>();
+            hud.driftBar.raycastTarget = false;
+
+            float[] tickAt = { 0.9f / 2.8f, 1.8f / 2.8f };   // matches KartController.miniTurboTimes
+            foreach (float x in tickAt)
+            {
+                var tick = new GameObject("Tick", typeof(RectTransform), typeof(Image));
+                tick.transform.SetParent(barGo.transform, false);
+                var trt = (RectTransform)tick.transform;
+                trt.anchorMin = new Vector2(x, 0f); trt.anchorMax = new Vector2(x, 1f);
+                trt.sizeDelta = new Vector2(4f, 0f);
+                var ti = tick.GetComponent<Image>(); ti.color = new Color(1f, 1f, 1f, 0.85f); ti.raycastTarget = false;
+            }
+            hud.driftRoot = barGo;
+            barGo.SetActive(false);
 
             // Minimap under the lap/time readout (dots are children, centered on the map)
             var mapGo = new GameObject("MiniMap", typeof(RectTransform), typeof(RawImage));
@@ -646,6 +672,50 @@ namespace KartRush.EditorTools
             mat.color = color;
             mat.SetFloat("_Smoothness", smoothness);
             mat.SetFloat("_Metallic", 0f);
+            EditorUtility.SetDirty(mat);
+            return mat;
+        }
+
+        // Soft round particle texture + a transparent URP particle material (additive for sparks/flame, alpha for smoke).
+        static Material GetParticleMaterial(string name, bool additive)
+        {
+            string texPath = "Assets/Textures/SoftDot.png";
+            if (!File.Exists(texPath))
+            {
+                const int s = 64;
+                var tex = new Texture2D(s, s, TextureFormat.RGBA32, false);
+                for (int y = 0; y < s; y++)
+                    for (int x = 0; x < s; x++)
+                    {
+                        float d = Vector2.Distance(new Vector2(x, y), new Vector2(s / 2f - 0.5f, s / 2f - 0.5f)) / (s / 2f);
+                        float a = Mathf.Clamp01(1f - d);
+                        a = a * a * (3f - 2f * a);
+                        tex.SetPixel(x, y, new Color(1f, 1f, 1f, a));
+                    }
+                File.WriteAllBytes(texPath, tex.EncodeToPNG());
+                Object.DestroyImmediate(tex);
+                AssetDatabase.ImportAsset(texPath);
+            }
+
+            string path = $"Assets/Materials/{name}.mat";
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (mat == null)
+            {
+                mat = new Material(Shader.Find("Universal Render Pipeline/Particles/Unlit"));
+                AssetDatabase.CreateAsset(mat, path);
+            }
+            mat.SetFloat("_Surface", 1f);                       // transparent
+            mat.SetFloat("_Blend", additive ? 2f : 0f);
+            mat.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            mat.SetFloat("_DstBlend", (float)(additive ? UnityEngine.Rendering.BlendMode.One : UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha));
+            mat.SetFloat("_ZWrite", 0f);
+            mat.SetOverrideTag("RenderType", "Transparent");
+            mat.renderQueue = 3000;
+            mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            var soft = AssetDatabase.LoadAssetAtPath<Texture2D>(texPath);
+            mat.SetTexture("_BaseMap", soft);
+            mat.mainTexture = soft;
+            mat.SetColor("_BaseColor", Color.white);
             EditorUtility.SetDirty(mat);
             return mat;
         }
